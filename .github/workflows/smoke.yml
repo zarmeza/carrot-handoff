@@ -1,0 +1,43 @@
+name: Smoke
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  cli:
+    name: CLI smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '4.0'
+          bundler-cache: true
+
+      # Exercise the binary the way a user would, in a throwaway repo.
+      - name: help
+        run: bin/handoff help
+
+      - name: save and load round trip
+        run: |
+          mkdir -p "$RUNNER_TEMP/fixture"
+          cd "$RUNNER_TEMP/fixture"
+          git init --quiet
+          git config user.email ci@example.com
+          git config user.name CI
+          echo hello > file.txt
+          git add -A
+          git commit --quiet -m "first"
+          "$GITHUB_WORKSPACE/bin/handoff" save "CI smoke test"
+          "$GITHUB_WORKSPACE/bin/handoff" status
+          "$GITHUB_WORKSPACE/bin/handoff" load
+
+      - name: fails cleanly outside a repository
+        run: |
+          cd "$RUNNER_TEMP"
+          if "$GITHUB_WORKSPACE/bin/handoff" save "x"; then
+            echo "expected a non-zero exit outside a repository"
+            exit 1
+          fi
