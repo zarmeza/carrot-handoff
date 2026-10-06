@@ -1,0 +1,125 @@
+# handoff
+
+Carry a task between AI coding agents without losing the thread.
+
+One agent runs out of tokens, you open another, and the reasoning that got you
+halfway is gone. `handoff` puts the state of the task in a file next to the
+code, so the next agent can pick it up cold.
+
+The note is `.handoff.md`, committed to the repo. It is plain markdown on
+purpose: any agent can read it without an integration, a plugin, or a hook.
+
+## Usage
+
+```console
+$ handoff save "Upgrade omniauth-facebook"
+Wrote /home/zarmeza/Developer/omnisearch-rails/.handoff.md (untracked — commit it so the next tool sees it)
+
+$ handoff status
+task:     Upgrade omniauth-facebook
+file:     /home/zarmeza/Developer/omnisearch-rails/.handoff.md
+sections: 1/5 written
+
+$ handoff load
+## Task
+
+Upgrade omniauth-facebook
+
+## State
+
+- Branch: `develop`
+- HEAD: `4f18f26`
+- Worktree: clean
+...
+```
+
+| Command | Does |
+|---|---|
+| `handoff save [TASK]` | Write or update the note. Preserves sections you already wrote. |
+| `handoff load` | Print the note. |
+| `handoff status` | Task summary plus how many of the five human sections are filled. `State` is machine-derived and not counted. |
+| `handoff clear` | Delete the note. |
+| `handoff path` | Print the note's absolute path. |
+
+Aliases: `new` for `save`, `show`/`cat` for `load`, `st` for `status`, `rm` for
+`clear`.
+
+## The format
+
+Six sections. Three of them a machine fills in, three only you or an agent can.
+
+| Section | Filled by | Holds |
+|---|---|---|
+| `Task` | you | What this is, for someone with no history. |
+| `State` | git | Branch, HEAD, uncommitted files, recent commits. Regenerated on every save. |
+| `Decisions` | you | Choices made and rejected. |
+| `Tried and failed` | you | What did not work, and why. **The section that matters most.** |
+| `Next action` | you | The single next step. |
+| `Open questions` | you | Unknown, unverified, blocked. |
+
+`Tried and failed` is the reason this tool exists. Two agents handed the same
+task will independently retry the same dead end unless somebody wrote down that
+it was tried. That information exists nowhere else.
+
+Empty sections get a `_TODO:` prompt rather than being omitted, so the shape of
+the note is visible. Prompts are regenerated on each save and never accumulate
+as content, which makes repeated `save` calls idempotent.
+
+Any heading `handoff` does not recognize is kept. `handoff status` lists them
+under `extra:` so a hand-written section is never silently dropped.
+
+## Wiring it into an agent
+
+There is nothing to install. Two lines in the project's `AGENTS.md` is enough:
+
+```markdown
+Before starting work in this repository, run `handoff load`. If a note exists,
+it describes work already in progress — read it and follow its `Next action`.
+
+Before you finish, run `handoff save "<one-line task>"` and fill in the
+`Tried and failed` and `Decisions` sections with what you actually learned.
+```
+
+Commit the note. That is what makes it survive a context reset and a machine
+swap.
+
+## Why not OpenWolf?
+
+OpenWolf does something similar and is more capable: native hooks for Claude
+Code and Codex, project maps, token accounting, a dashboard. Two reasons this
+exists instead:
+
+- **Hook support for antigravity is instructions-only.** OpenWolf's own docs
+  list Antigravity alongside Cursor and Gemini CLI under "project instruction
+  files", with no full hook integration. Half the tool for a two-tool handoff.
+- **List-price accounting does not model a free-tier ceiling.** The constraint
+  here is tokens running out, not money spent.
+
+This is also AGPL-3.0-free, which matters if it ever ends up somewhere real.
+
+## Development
+
+```console
+$ bundle install
+$ bundle exec rake        # specs + rubocop
+$ bundle exec rspec       # 45 examples
+$ bundle exec rubocop
+```
+
+Ruby 4.0.7. No runtime dependencies — `open3` and `json` are stdlib.
+
+Specs build real throwaway git repositories in a tmpdir rather than stubbing
+`Git`, so the shell-outs are actually exercised.
+
+## Layout
+
+```text
+bin/handoff              entry point
+lib/handoff.rb           FILENAME, Repo (path lookups), Error
+lib/handoff/git.rb       git binary wrapper; returns nil, never raises
+lib/handoff/record.rb    markdown in, sections out
+lib/handoff/store.rb     file IO
+lib/handoff/template.rb  note rendering, git state assembly
+lib/handoff/cli.rb       argument dispatch
+spec/                    45 examples
+```
