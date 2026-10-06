@@ -9,6 +9,9 @@ code, so the next agent can pick it up cold.
 The note is `.handoff.md`, committed to the repo. It is plain markdown on
 purpose: any agent can read it without an integration, a plugin, or a hook.
 
+[![CI](https://github.com/zarmeza/handoff/actions/workflows/ci.yml/badge.svg)](https://github.com/zarmeza/handoff/actions/workflows/ci.yml)
+[![Ruby](https://img.shields.io/badge/ruby-4.0.7-red.svg)](https://www.ruby-lang.org/)
+
 ## Usage
 
 ```console
@@ -111,6 +114,12 @@ Ruby 4.0.7. No runtime dependencies — `open3` and `json` are stdlib.
 Specs build real throwaway git repositories in a tmpdir rather than stubbing
 `Git`, so the shell-outs are actually exercised.
 
+CI runs three jobs on every push: **Specs**, **RuboCop**, and a **CLI smoke
+test** that drives `bin/handoff` in a throwaway repo — `help`, a
+save/status/load round trip, and a check that it exits non-zero outside a
+repository. Specs passing on one laptop is not evidence for anyone else, and a
+portfolio project needs the evidence to be reproducible.
+
 ## Layout
 
 ```text
@@ -122,4 +131,6 @@ lib/handoff/store.rb     file IO
 lib/handoff/template.rb  note rendering, git state assembly
 lib/handoff/cli.rb       argument dispatch
 spec/                    45 examples
+.handoff.md              this repo's own handoff note
+AGENTS.md                conventions for agents working here
 ```
